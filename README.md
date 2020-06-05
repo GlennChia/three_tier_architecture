@@ -111,6 +111,8 @@ Since we are deploying in ap-southeast-1, there are 3 Availability Zones to choo
 
 # 4. Objective 2: Create an Internet Gateway and Route tables
 
+## 4.1 Creating the Internet Gateway
+
 Useful Link:[Cloud Formation Designer Walkthrough](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/working-with-templates-cfn-designer-walkthrough-createbasicwebserver.html)
 
 1. In Cloud Designer: EC2 -> InternetGateway -> Place it outside the VPC -> Rename it `InternetGateway` the Tag will be the same
@@ -141,4 +143,109 @@ Useful Link:[Cloud Formation Designer Walkthrough](https://docs.aws.amazon.com/A
            id: 53e220ef-0dc3-40f2-a392-a18a91ae642b
    ```
 
+## 4.2 Creating the Route Tables
+
+Route tables 
+
+- Are added inside the VPC (Associates them to the VPC). 
+- They are responsible for specifying how to direct network traffic from within a subnet.
+
+### 4.2.1 First Route Table: Public Route Table
+
+There are some nuances when creating a public route. This [video](https://www.youtube.com/watch?v=jLP_gw5PRzc) was useful
+
+1. Drag and drop a Route Table and rename it `PublicRouteTable`
+   <img src="assets/a009_public_route_table.PNG" style="zoom:50%;" />
+
+2. Add a Route to the Route Table and rename it `PublicRoute`
+   <img src="assets/a010_public_route.PNG" style="zoom:50%;" />
+
+3. Add a connection between the Internet Gateway (`AWS::EC2::VPCGatewayAttachment`) and the `PublicRoute` (`AWS::EC2::VPNGateway/AWS::EC2::InternetGateway (Property: GatewayId`). When doing this, drag from the `publicRoute` to the Internet Gateway (It will be highlighted in green)
+   ![](assets/a011_route_table_connection.PNG)
+   <img src="assets/a012_route_internet_gateway.PNG" style="zoom:67%;" />
+
+4. The documentation states that "AWS CloudFormation can't associate a route with an Internet gateway until you associate the Internet gateway with the VPC. This means we need to create an explicit dependency on the Internet gateway-VPC attachment". 
+
+5. From the documentation: On the `PublicRoute` resource, hover over the **DependsOn** dot.Drag a connection to the Internet gateway-VPC attachment (`AWS::EC2::VPCGatewayAttachment`). With `DependsOn` connections, AWS CloudFormation Designer creates a dependency (a `DependsOn` attribute), where the originating resource depends on the target resource. In this case, AWS CloudFormation Designer adds a `DependsOn` attribute to the `PublicRoute` resource and specifies the gateway-VPC attachment as a dependency.
+   ![](assets/a013_public_route_depends_on.PNG)
+   <img src="assets/a014_public_route_depends_on_link.PNG" style="zoom:50%;" />
+   <img src="assets/a015_depends_on_link.PNG" style="zoom:50%;" />
+
+6. Associate the public subnets with the route table
+   ![](assets/a016_subnet_route_table_association.PNG)
+   ![](assets/a017_route_table_subnet_association.PNG)
+
+7. Rename the associations and assign Tags to the Route Table. We also need a `DestinationCidrBlock` which is to the internet. Link: [Route Table Properties](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-route-table.html)
+
+   ```yaml
+     PublicRoute:
+       Type: 'AWS::EC2::Route'
+       Properties:
+         RouteTableId: !Ref PublicRouteTable
+         GatewayId: !Ref InternetGateway
+         DestinationCidrBlock: 0.0.0.0/0
+       Metadata:
+         'AWS::CloudFormation::Designer':
+           id: e84213df-6d14-485f-af68-a9fbd2d748b3
+       DependsOn:
+         - InternetGateway
+     PublicRouteSubnet2Association:
+       Type: 'AWS::EC2::SubnetRouteTableAssociation'
+       Properties:
+         RouteTableId: !Ref PublicRouteTable
+         SubnetId: !Ref publicSubnet2
+       Metadata:
+         'AWS::CloudFormation::Designer':
+           id: f898f40d-8d46-49b1-ad7b-7771facbfbf9
+     PublicRouteSubnet1Association:
+       Type: 'AWS::EC2::SubnetRouteTableAssociation'
+       Properties:
+         RouteTableId: !Ref PublicRouteTable
+         SubnetId: !Ref publicSubnet1
+       Metadata:
+         'AWS::CloudFormation::Designer':
+           id: 1aee7cd1-82e1-417d-ba40-ba5bee6b8849
+     PrivateRouteTable:
+       Type: 'AWS::EC2::RouteTable'
+       Properties:
+         VpcId: !Ref vpcApSoutheast1ThreeTierStack
+         Tags:
+           - Key: Name
+             Value: private-route-table
+       Metadata:
+         'AWS::CloudFormation::Designer':
+           id: ac81569b-4f99-441d-8ca5-db0743426eff
+   ```
+
+
+
+### 4.2.2 Second Route Table: Private Route Table
+
+1. Drag and drop the route table and rename it
+   <img src="assets/a018_private_route_table.PNG" style="zoom:50%;" />
+
+2. Add a Route to the Private Route Table and rename it
+   <img src="assets/a019_private_route.PNG" style="zoom:50%;" />
+
+3. Connect the Route Table to the Private subnets and rename the associations
+   <img src="assets/a020_route_table_subnet_association.PNG" style="zoom:50%;" />
+
+4. Give a `Tag` to the Route Table. Add a `DestinationCidrBlock` to the internet on the Route. Later when the Nat Gateway is created, use `NatGatewayId` to connect them. For now, comment out the routes and associations to avoid errors. We will just create the private table first without any routes or associations
+
+   ```yaml
+     PrivateRouteTable:
+       Type: 'AWS::EC2::RouteTable'
+       Properties:
+         VpcId: !Ref vpcApSoutheast1ThreeTierStack
+         Tags:
+           - Key: Name
+             Value: private-route-table
+       Metadata:
+         'AWS::CloudFormation::Designer':
+           id: ac81569b-4f99-441d-8ca5-db0743426effs
+   ```
    
+   
+
+
+
