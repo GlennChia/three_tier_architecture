@@ -51,3 +51,61 @@ Link: [Designing a three tier architecture](https://medium.com/the-andela-way/de
           - Key: Name
             Value: vpc-ap-southeast-1-d-three-tier-Stack
    ```
+   
+   
+
+## 3.2 Add the AZs and Subnets
+
+Note: There is no AZ component, we just have to configure the subnet CIDR and properties
+
+Since we are deploying in ap-southeast-1, there are 3 Availability Zones to choose from 
+
+1. ap-southeast-1a (apse1-az2). This will contain 
+   - public-subnet-1. CIDR (10.0.1.0/24)
+   - private-subnet-3. CIDR (10.0.3.0/24)
+2. ap-southeast-1b (apse1-az1). This will contain 
+   - public-subnet-2. CIDR (10.0.2.0/24)
+   - private-subnet-4. CIDR (10.0.4.0/24)
+3. ap-southeast-1c (apse1-az3). We don't need this AZ
+
+<u>**In Cloud Designer**</u>
+
+1. From the Resource types -> EC2 -> Subnet. Add 4 subnets and rename them accordingly
+   <img src="assets/a006_create_subnets.PNG" style="zoom:50%;" />
+
+2. Assign subnets to AZs. Link: [subnet AZ Cloudformation](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-getavailabilityzones.html) and [Nested Functions with Short Form YAML](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-select.html)
+
+   ```yaml
+   publicSubnet1:
+       Type: 'AWS::EC2::Subnet'
+       Properties:
+         VpcId: !Ref vpcApSoutheast1ThreeTierStack
+         AvailabilityZone: !Select
+           - 0
+           - Fn::GetAZs: !Ref 'AWS::Region'
+       Metadata:
+         'AWS::CloudFormation::Designer':
+           id: e30d239b-b3ea-4ffb-8d01-2c09354147cf
+   ```
+   
+3. Add the IPs for the subnets and their tags. Link: [subnet properties Cloudformation](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-subnet.html#cfn-ec2-subnet-availabilityzone)
+
+   ```yaml
+   publicSubnet1:
+       Type: 'AWS::EC2::Subnet'
+       Properties:
+         VpcId: !Ref vpcApSoutheast1ThreeTierStack
+         CidrBlock: 10.0.1.0/24
+         AvailabilityZone: !Select
+           - 0
+           - Fn::GetAZs: !Ref 'AWS::Region'
+         Tags:
+           - Key: Name
+             Value: public-subnet-1
+       Metadata:
+         'AWS::CloudFormation::Designer':
+           id: e30d239b-b3ea-4ffb-8d01-2c09354147cf
+   ```
+   
+   
+

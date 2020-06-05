@@ -3,20 +3,137 @@ Metadata:
   'AWS::CloudFormation::Designer':
     b1079390-712f-4d93-b4ff-555f5b956f19:
       size:
-        width: 270
-        height: 230
+        width: 360
+        height: 410
       position:
-        x: -10
-        'y': 230
+        x: 50
+        'y': 290
       z: 0
+      embeds:
+        - 6c18f82b-a88f-41fc-9636-50e0b11482b3
+        - db0820ab-772b-44ab-8094-d0212dd12d28
+        - 337718d1-0381-461b-bb3a-1091dc21c77b
+        - e30d239b-b3ea-4ffb-8d01-2c09354147cf
+    e30d239b-b3ea-4ffb-8d01-2c09354147cf:
+      size:
+        width: 140
+        height: 140
+      position:
+        x: 74.21905068296115
+        'y': 358.48101303655676
+      z: 1
+      parent: b1079390-712f-4d93-b4ff-555f5b956f19
+      embeds: []
+      iscontainedinside:
+        - b1079390-712f-4d93-b4ff-555f5b956f19
+        - b1079390-712f-4d93-b4ff-555f5b956f19
+        - b1079390-712f-4d93-b4ff-555f5b956f19
+    337718d1-0381-461b-bb3a-1091dc21c77b:
+      size:
+        width: 140
+        height: 140
+      position:
+        x: 240
+        'y': 360
+      z: 1
+      parent: b1079390-712f-4d93-b4ff-555f5b956f19
+      embeds: []
+      iscontainedinside:
+        - b1079390-712f-4d93-b4ff-555f5b956f19
+        - b1079390-712f-4d93-b4ff-555f5b956f19
+        - b1079390-712f-4d93-b4ff-555f5b956f19
+    db0820ab-772b-44ab-8094-d0212dd12d28:
+      size:
+        width: 140
+        height: 140
+      position:
+        x: 70
+        'y': 530
+      z: 1
+      parent: b1079390-712f-4d93-b4ff-555f5b956f19
+      embeds: []
+      iscontainedinside:
+        - b1079390-712f-4d93-b4ff-555f5b956f19
+        - b1079390-712f-4d93-b4ff-555f5b956f19
+        - b1079390-712f-4d93-b4ff-555f5b956f19
+    6c18f82b-a88f-41fc-9636-50e0b11482b3:
+      size:
+        width: 140
+        height: 140
+      position:
+        x: 240
+        'y': 530
+      z: 1
+      parent: b1079390-712f-4d93-b4ff-555f5b956f19
+      embeds: []
+      iscontainedinside:
+        - b1079390-712f-4d93-b4ff-555f5b956f19
+        - b1079390-712f-4d93-b4ff-555f5b956f19
+        - b1079390-712f-4d93-b4ff-555f5b956f19
 Resources:
   vpcApSoutheast1ThreeTierStack:
     Type: 'AWS::EC2::VPC'
-    Properties: 
+    Properties:
       CidrBlock: 10.0.0.0/16
       Tags:
-       - Key: Name
-         Value: vpc-ap-southeast-1-d-three-tier-Stack
+        - Key: Name
+          Value: vpc-ap-southeast-1-d-three-tier-Stack
     Metadata:
       'AWS::CloudFormation::Designer':
         id: b1079390-712f-4d93-b4ff-555f5b956f19
+  publicSubnet1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref vpcApSoutheast1ThreeTierStack
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      Tags:
+        - Key: Name
+          Value: public-subnet-1
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: e30d239b-b3ea-4ffb-8d01-2c09354147cf
+  publicSubnet2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref vpcApSoutheast1ThreeTierStack
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select
+        - 1
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      Tags:
+        - Key: Name
+          Value: public-subnet-2
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 337718d1-0381-461b-bb3a-1091dc21c77b
+  privateSubnet3:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref vpcApSoutheast1ThreeTierStack
+      CidrBlock: 10.0.3.0/24
+      AvailabilityZone: !Select
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      Tags:
+        - Key: Name
+          Value: private-subnet-3
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: db0820ab-772b-44ab-8094-d0212dd12d28
+  privateSubnet4:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref vpcApSoutheast1ThreeTierStack
+      CidrBlock: 10.0.4.0/24
+      AvailabilityZone: !Select
+        - 1
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      Tags:
+        - Key: Name
+          Value: private-subnet-4
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: 6c18f82b-a88f-41fc-9636-50e0b11482b3
