@@ -1,0 +1,22 @@
+AWSTemplateFormatVersion: 2010-09-09
+Metadata:
+  'AWS::CloudFormation::Designer':
+    b1079390-712f-4d93-b4ff-555f5b956f19:
+      size:
+        width: 270
+        height: 230
+      position:
+        x: -10
+        'y': 230
+      z: 0
+Resources:
+  vpcApSoutheast1ThreeTierStack:
+    Type: 'AWS::EC2::VPC'
+    Properties: 
+      CidrBlock: 10.0.0.0/16
+      Tags:
+       - Key: Name
+         Value: vpc-ap-southeast-1-d-three-tier-Stack
+    Metadata:
+      'AWS::CloudFormation::Designer':
+        id: b1079390-712f-4d93-b4ff-555f5b956f19
