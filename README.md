@@ -1,6 +1,6 @@
 # 1. 3-tier-architecture
 
-Link: [Designing a three tier architecture](https://medium.com/the-andela-way/designing-a-three-tier-architecture-in-aws-e5c24671f124#:~:text=Introduction&text=A three-tier architecture is,and the data storage layer.)
+Link: [Designing a three tier architecture](https://medium.com/the-andela-way/designing-a-three-tier-architecture-in-aws-e5c24671f124#:~:text=Introduction&text=A)
 
 # 2. Navigating through CloudFormation
 
