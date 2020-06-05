@@ -109,3 +109,36 @@ Since we are deploying in ap-southeast-1, there are 3 Availability Zones to choo
    
    
 
+# 4. Objective 2: Create an Internet Gateway and Route tables
+
+Useful Link:[Cloud Formation Designer Walkthrough](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/working-with-templates-cfn-designer-walkthrough-createbasicwebserver.html)
+
+1. In Cloud Designer: EC2 -> InternetGateway -> Place it outside the VPC -> Rename it `InternetGateway` the Tag will be the same
+   <img src="assets/a007_internet_gateway.PNG" style="zoom:50%;" />
+
+2. Create a connection between the `InternetGateway` resource (`AWS::EC2::VPCGatewayAttachment`) and the `VPC` resource (anywhere on the border).
+   <img src="assets/a008_internet_gateway_attachment.PNG" style="zoom:50%;" />
+
+3. Add a `Tag` to the `InternetGateway`, Link: [Internet Gateway Properties](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-internetgateway.html)
+
+   ```yaml
+     InternetGateway:
+       Type: 'AWS::EC2::InternetGateway'
+       Properties:
+         Tags:
+           - Key: Name
+             Value: InternetGatewayThreeTierStack
+       Metadata:
+         'AWS::CloudFormation::Designer':
+           id: 2033d870-81b5-452d-8f46-d2be6c231f58
+     InternetGatewayAttachment:
+       Type: 'AWS::EC2::VPCGatewayAttachment'
+       Properties:
+         VpcId: !Ref vpcApSoutheast1ThreeTierStack
+         InternetGatewayId: !Ref InternetGateway
+       Metadata:
+         'AWS::CloudFormation::Designer':
+           id: 53e220ef-0dc3-40f2-a392-a18a91ae642b
+   ```
+
+   
