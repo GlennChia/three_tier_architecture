@@ -242,10 +242,96 @@ There are some nuances when creating a public route. This [video](https://www.yo
              Value: private-route-table
        Metadata:
          'AWS::CloudFormation::Designer':
-           id: ac81569b-4f99-441d-8ca5-db0743426effs
+           id: ac81569b-4f99-441d-8ca5-db0743426eff
+     # PrivateRoute:
+     #   Type: 'AWS::EC2::Route'
+     #   Properties:
+     #     RouteTableId: !Ref PrivateRouteTable
+     #     DestinationCidrBlock: 0.0.0.0/0
+     #   Metadata:
+     #     'AWS::CloudFormation::Designer':
+     #       id: 851eeb98-3bce-4fa2-a9c7-21a11ee6611d
+     # PrivateRouteSubnet4Association:
+     #   Type: 'AWS::EC2::SubnetRouteTableAssociation'
+     #   Properties:
+     #     RouteTableId: !Ref PrivateRouteTable
+     #     SubnetId: !Ref privateSubnet4
+     #   Metadata:
+     #     'AWS::CloudFormation::Designer':
+     #       id: 378d451e-1d23-490b-9c45-37a236f327be
+     # PrivateRouteSubnet3Association:
+     #   Type: 'AWS::EC2::SubnetRouteTableAssociation'
+     #   Properties:
+     #     RouteTableId: !Ref PrivateRouteTable
+     #     SubnetId: !Ref privateSubnet3
+     #   Metadata:
+     #     'AWS::CloudFormation::Designer':
+     #       id: 39e92247-612f-4e18-99e3-59ab3b87d421
    ```
+
    
-   
 
+# 5. Objective 3: Create the NAT Gateway and update the Routes
 
+Link to CloudFormation Nat Gateway set-up
 
+- [AWS::EC2::NatGateway](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-natgateway.html)
+- [Taking NAT to the Next Level in AWS CloudFormation Templates](https://aws.amazon.com/blogs/apn/taking-nat-to-the-next-level-in-aws-cloudformation-templates/)
+- [vpc-nat-gateway.yaml](https://github.com/widdix/aws-cf-templates/blob/master/vpc/vpc-nat-gateway.yaml)
+
+Creating the CF
+
+1. Drag and drop the Nat Gateway into the public subnet and the EIP into the VPC
+   ![](assets/a021_nat_eip.PNG)
+
+2. Link the route to the NatGateway
+   <img src="assets/a022_route_to_nat.PNG" style="zoom:50%;" />
+
+3. This changes the YAML for the private route to have `NatGatewayId`
+
+   ```yaml
+     PrivateRoute:
+       Type: 'AWS::EC2::Route'
+       Properties:
+         RouteTableId: !Ref PrivateRouteTable
+         DestinationCidrBlock: 0.0.0.0/0
+         NatGatewayId: !Ref NatGateway
+       Metadata:
+         'AWS::CloudFormation::Designer':
+           id: 851eeb98-3bce-4fa2-a9c7-21a11ee6611d
+   ```
+
+4. Link the Elastic IP to depend on the Internet Gateway Attachment
+   <img src="assets/a023_eip_dependency.PNG" style="zoom:50%;" />
+
+5. According to the documentation, the Properties should be `Domain: vpc`, which according to [AWS::EC2::EIP](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-eip.html) means allocating the address for use with instances in a VPC. In this case we want to allocate to the NatGateway
+
+   ```yaml
+     EIP:
+       Type: 'AWS::EC2::EIP'
+       Properties:
+         Domain: vpc
+       Metadata:
+         'AWS::CloudFormation::Designer':
+           id: dc0c0377-5868-4684-856b-9ad8501a3439
+   ```
+
+6. The documentation suggests adding an `allocationID`of the elastic IP address to associate with the NAT gateway. I couldn't seem to connect any arrows in Cloud Designer. Hence I edited the YAML manually.
+
+   ```yaml
+     NatGateway:
+       Type: 'AWS::EC2::NatGateway'
+       Properties:
+         AllocationId:
+           Fn::GetAtt:
+             - EIP
+             - AllocationId
+         SubnetId: !Ref publicSubnet2
+         Tags:
+           - Key: Name
+             Value: nat-three-tier-stack
+   ```
+
+7. Upon typing these, the diagram in Cloud Designer Changes
+
+   <img src="assets/a024_current_diagram.PNG" style="zoom:70%;" />
