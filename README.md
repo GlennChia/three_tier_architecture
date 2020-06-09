@@ -792,9 +792,218 @@ Upon launching the stack, we are greeted by parameters
 
 Useful Links:
 
-- [Template for RDS and Read Replica](https://s3.us-west-2.amazonaws.com/cloudformation-templates-us-west-2/RDS_MySQL_With_Read_Replica.template)
+- [Template for RDS and Read Replica](https://s3.us-west-2.amazonaws.com/cloudformation-templates-us-west-2/RDS_MySQL_With_Read_Replica.template). Note that it uses a condition for EC2 Classic and EC2 VPC
+- [Link to information about EC2 Classic and EC2 VPC]([https://docs.rightscale.com/faq/clouds/aws/What_is_an_EC2-Classic_network.html#:~:text=EC2%2DClassic%20is%20the%20original,to%20only%20one%20AWS%20account.](https://docs.rightscale.com/faq/clouds/aws/What_is_an_EC2-Classic_network.html#:~:text=EC2-Classic is the original,to only one AWS account.)). In short, new users are automatically on EC2 VPC
+- [Launching RDS into a VPC](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_VPC.html)
+- [RDS in a VPC template](https://s3-us-west-2.amazonaws.com/cloudformation-templates-us-west-2/RDS_VPC.template)
+- [RDS templates](https://aws.amazon.com/cloudformation/templates/aws-cloudformation-templates-us-west-2/)
+- [Working with a DB Instance in a VPC](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_VPC.WorkingWithRDSInstanceinaVPC.html)
+  - Your VPC must have a DB subnet group that you create
+  - Your VPC must have a VPC security group that allows access to the DB instance.
 
+In Cloud Designer
 
+1. Create the Parameters for the DBName, DBUser, DBPassword, DBAllocatedStorage, DBInstanceClass. 
+
+   ```yaml
+   Parameters:
+     DBName:
+       Default: MyDatabase
+       Description: The database name
+       Type: String
+       MinLength: '1'
+       MaxLength: '64'
+       AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+       ConstraintDescription: must begin with a letter and contain only alphanumeric characters.
+     DBUser:
+       Default: root
+       NoEcho: 'true'
+       Description: The database admin account username
+       Type: String
+       MinLength: '1'
+       MaxLength: '16'
+       AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+       ConstraintDescription: must begin with a letter and contain only alphanumeric characters.
+     DBPassword:
+       Default: password
+       NoEcho: 'true'
+       Description: The database admin account password
+       Type: String
+       MinLength: '1'
+       MaxLength: '41'
+       AllowedPattern: '[a-zA-Z0-9]+'
+       ConstraintDescription: must contain only alphanumeric characters.
+     DBAllocatedStorage:
+       Default: '5'
+       Description: The size of the database (Gb)
+       Type: Number
+       MinValue: '5'
+       MaxValue: '1024'
+       ConstraintDescription: must be between 5 and 1024Gb.
+     DBInstanceClass:
+       Description: The database instance type
+       Type: String
+       Default: db.t2.small
+       AllowedValues:
+         - db.t1.micro
+         - db.m1.small
+         - db.m1.medium
+         - db.m1.large
+         - db.m1.xlarge
+         - db.m2.xlarge
+         - db.m2.2xlarge
+         - db.m2.4xlarge
+         - db.m3.medium
+         - db.m3.large
+         - db.m3.xlarge
+         - db.m3.2xlarge
+         - db.m4.large
+         - db.m4.xlarge
+         - db.m4.2xlarge
+         - db.m4.4xlarge
+         - db.m4.10xlarge
+         - db.r3.large
+         - db.r3.xlarge
+         - db.r3.2xlarge
+         - db.r3.4xlarge
+         - db.r3.8xlarge
+         - db.m2.xlarge
+         - db.m2.2xlarge
+         - db.m2.4xlarge
+         - db.cr1.8xlarge
+         - db.t2.micro
+         - db.t2.small
+         - db.t2.medium
+         - db.t2.large
+       ConstraintDescription: must select a valid database instance type.
+     MultiAZ:
+       Description: Multi-AZ master database
+       Type: String
+       Default: 'false'
+       AllowedValues:
+         - 'true'
+         - 'false'
+       ConstraintDescription: must be true or false.
+   ```
+
+2. Drag and drop the RDS database, a normal EC2 security group (Note that `'AWS::RDS::DBSecurityGroup'` is for ec2 classic), and a replica which is just another RDS instance. Read Replica will share the same `DBSubnetGroup` as the master
+
+   <img src="assets/a027_rds_drag_drop.PNG" style="zoom:50%;" />
+
+3. The DB Subnet Groups will be configured as such. Adding a `DBSubnetGroupDescription` is required
+
+   ```yaml
+     DBSubnetGroup:
+       Type: 'AWS::RDS::DBSubnetGroup'
+       Properties:
+         DBSubnetGroupDescription: Subnets available for the RDS DB Instance
+         SubnetIds:
+           - !Ref privateSubnet3
+           - !Ref privateSubnet4
+       Metadata:
+         'AWS::CloudFormation::Designer':
+           id: ee5ed5b6-5191-4447-92d5-b7c94799933f
+   ```
+
+4. Start with the security group and open up TCP 3306 to the `BackendEC2SecurityGroup`. At this point the `SecurityGroupIngress` was still giving me problems so I commented it out for now but I'm leaving it here for reference
+
+   ```yaml
+     DBEC2SecurityGroup:
+       Type: 'AWS::EC2::SecurityGroup'
+       Properties:
+         VpcId: !Ref vpcApSoutheast1ThreeTierStack
+         GroupDescription: Open database for access
+         Tags:
+           - Key: Name
+             Value: rds-three-tier-sg
+         SecurityGroupIngress:
+           - IpProtocol: tcp
+             FromPort: '3306'
+             ToPort: '3306'
+             SourceSecurityGroupName: !Ref BackendEC2SecurityGroup
+       Metadata:
+         'AWS::CloudFormation::Designer':
+           id: 3f0c8f2f-38fe-4e1d-a806-1b357c9301c0
+   ```
+
+5. Configure the Master DB. Note that the name can be configured via `DBInstanceIdentifier`
+
+   ```yaml
+     MasterDB:
+       Type: 'AWS::RDS::DBInstance'
+       Properties:
+         DBName: !Ref DBName
+         AllocatedStorage: !Ref DBAllocatedStorage
+         DBInstanceClass: !Ref DBInstanceClass
+         Engine: MySQL
+         MasterUsername: !Ref DBUser
+         MasterUserPassword: !Ref DBPassword
+         MultiAZ: !Ref MultiAZ
+         DBSubnetGroupName: !Ref DBSubnetGroup
+         DBInstanceIdentifier: master-db-three-tier
+         VPCSecurityGroups:
+           - !Ref DBEC2SecurityGroup
+         Tags:
+           - Key: Name
+             Value: Master-database-three-tier
+       DeletionPolicy: Snapshot
+       Metadata:
+         'AWS::CloudFormation::Designer':
+           id: 5b1b72c3-2abb-4266-94e2-30c7e99e6b21
+   ```
+
+6. Configure the ReplicaDB. Note: We don't need to specify the `DBSubnetGroupName` if not we get the following error "`DbSubnetGroupName` should not be specified for read replicas that are created in the same region as the master" 
+
+   ```yaml
+     ReplicaDB:
+       Type: 'AWS::RDS::DBInstance'
+       Properties:
+         SourceDBInstanceIdentifier: !Ref MasterDB
+         DBInstanceClass: !Ref DBInstanceClass
+         DBInstanceIdentifier: replica-db-three-tier
+         Tags:
+           - Key: Name
+             Value: Read-replica-database-three-tier
+       Metadata:
+         'AWS::CloudFormation::Designer':
+           id: 821e67dd-1645-47c9-99d3-5ac3bfdedb62
+   ```
+
+7. Set the Outputs
+
+   ```yaml
+     MasterJDBCConnectionString:
+       Description: JDBC connection string for the master database
+       Value: !Join 
+         - ''
+         - - 'jdbc:mysql://'
+           - !GetAtt 
+             - MasterDB
+             - Endpoint.Address
+           - ':'
+           - !GetAtt 
+             - MasterDB
+             - Endpoint.Port
+           - /
+           - !Ref DBName
+     ReplicaJDBCConnectionString:
+       Description: JDBC connection string for the replica database
+       Value: !Join 
+         - ''
+         - - 'jdbc:mysql://'
+           - !GetAtt 
+             - ReplicaDB
+             - Endpoint.Address
+           - ':'
+           - !GetAtt 
+             - ReplicaDB
+             - Endpoint.Port
+           - /
+           - !Ref DBName
+   
+   ```
+
+   
 
 # 8. Objective 6: Create the load balancers and Auto Scaling Group
 
@@ -802,5 +1011,7 @@ Note: The front-end Web Application resides in the private subnets but is connec
 
 Link to security group configurations for the Bastion host and the private instances: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Scenario2.html
 
+# 9. TODO
 
+1. Figure out the Security Group Ingress to take in another security group. This is needed for the SG for the front end to take in the Bastion host and the SG for the RDS to accept requests from the backend SG
 
