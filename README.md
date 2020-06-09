@@ -335,3 +335,472 @@ Creating the CF
 7. Upon typing these, the diagram in Cloud Designer Changes
 
    <img src="assets/a024_current_diagram.PNG" style="zoom:70%;" />
+
+
+
+# 6. Objective 4: Create the Bastion Host
+
+Link 1: [Creating a Bastion Host](https://www.agilepartner.net/en/aws-cloudformation-part-3/)
+
+- Explains parameters. Declare a parameter where the GUI will ask for the IP
+
+In Cloud Designer
+
+1. From the link 1 we can see how the SSH IP is created as a parameter. This [Link](https://s3.us-west-2.amazonaws.com/cloudformation-templates-us-west-2/EC2InstanceWithSecurityGroupSample.template) also shows how to configure the parameters. Without a default value, we will need to enter the IP
+
+   ```yaml
+   Parameters:
+     SSHLocation:
+       Description: The IP address range that can be used to SSH to the EC2 instances
+       Type: String
+       MinLength: '9'
+       MaxLength: '18'
+       Default: 0.0.0.0/0
+       AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
+       ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+   ```
+
+2. Then we create several parameters for the EC2 instance for its KeyName, type etc.
+
+   ```yaml
+   Parameters:
+     KeyName:
+       Description: Name of an existing EC2 KeyPair to enable SSH access to the instance
+       Type: 'AWS::EC2::KeyPair::KeyName'
+       ConstraintDescription: must be the name of an existing EC2 KeyPair.
+     InstanceType:
+       Description: WebServer EC2 instance type
+       Type: String
+       Default: t2.micro
+       AllowedValues:
+         - t1.micro
+         - t2.nano
+         - t2.micro
+         - t2.small
+         - t2.medium
+         - t2.large
+         - m1.small
+         - m1.medium
+         - m1.large
+         - m1.xlarge
+         - m2.xlarge
+         - m2.2xlarge
+         - m2.4xlarge
+         - m3.medium
+         - m3.large
+         - m3.xlarge
+         - m3.2xlarge
+         - m4.large
+         - m4.xlarge
+         - m4.2xlarge
+         - m4.4xlarge
+         - m4.10xlarge
+         - c1.medium
+         - c1.xlarge
+         - c3.large
+         - c3.xlarge
+         - c3.2xlarge
+         - c3.4xlarge
+         - c3.8xlarge
+         - c4.large
+         - c4.xlarge
+         - c4.2xlarge
+         - c4.4xlarge
+         - c4.8xlarge
+         - g2.2xlarge
+         - g2.8xlarge
+         - r3.large
+         - r3.xlarge
+         - r3.2xlarge
+         - r3.4xlarge
+         - r3.8xlarge
+         - i2.xlarge
+         - i2.2xlarge
+         - i2.4xlarge
+         - i2.8xlarge
+         - d2.xlarge
+         - d2.2xlarge
+         - d2.4xlarge
+         - d2.8xlarge
+         - hi1.4xlarge
+         - hs1.8xlarge
+         - cr1.8xlarge
+         - cc2.8xlarge
+         - cg1.4xlarge
+       ConstraintDescription: must be a valid EC2 instance type.
+   ```
+
+3. Define the mappings for the EC2 Instance Types
+
+   ```react
+   Mappings:
+     AWSInstanceType2Arch:
+       t1.micro:
+         Arch: HVM64
+       t2.nano:
+         Arch: HVM64
+       t2.micro:
+         Arch: HVM64
+       t2.small:
+         Arch: HVM64
+       t2.medium:
+         Arch: HVM64
+       t2.large:
+         Arch: HVM64
+       m1.small:
+         Arch: HVM64
+       m1.medium:
+         Arch: HVM64
+       m1.large:
+         Arch: HVM64
+       m1.xlarge:
+         Arch: HVM64
+       m2.xlarge:
+         Arch: HVM64
+       m2.2xlarge:
+         Arch: HVM64
+       m2.4xlarge:
+         Arch: HVM64
+       m3.medium:
+         Arch: HVM64
+       m3.large:
+         Arch: HVM64
+       m3.xlarge:
+         Arch: HVM64
+       m3.2xlarge:
+         Arch: HVM64
+       m4.large:
+         Arch: HVM64
+       m4.xlarge:
+         Arch: HVM64
+       m4.2xlarge:
+         Arch: HVM64
+       m4.4xlarge:
+         Arch: HVM64
+       m4.10xlarge:
+         Arch: HVM64
+       c1.medium:
+         Arch: HVM64
+       c1.xlarge:
+         Arch: HVM64
+       c3.large:
+         Arch: HVM64
+       c3.xlarge:
+         Arch: HVM64
+       c3.2xlarge:
+         Arch: HVM64
+       c3.4xlarge:
+         Arch: HVM64
+       c3.8xlarge:
+         Arch: HVM64
+       c4.large:
+         Arch: HVM64
+       c4.xlarge:
+         Arch: HVM64
+       c4.2xlarge:
+         Arch: HVM64
+       c4.4xlarge:
+         Arch: HVM64
+       c4.8xlarge:
+         Arch: HVM64
+       g2.2xlarge:
+         Arch: HVMG2
+       g2.8xlarge:
+         Arch: HVMG2
+       r3.large:
+         Arch: HVM64
+       r3.xlarge:
+         Arch: HVM64
+       r3.2xlarge:
+         Arch: HVM64
+       r3.4xlarge:
+         Arch: HVM64
+       r3.8xlarge:
+         Arch: HVM64
+       i2.xlarge:
+         Arch: HVM64
+       i2.2xlarge:
+         Arch: HVM64
+       i2.4xlarge:
+         Arch: HVM64
+       i2.8xlarge:
+         Arch: HVM64
+       d2.xlarge:
+         Arch: HVM64
+       d2.2xlarge:
+         Arch: HVM64
+       d2.4xlarge:
+         Arch: HVM64
+       d2.8xlarge:
+         Arch: HVM64
+       hi1.4xlarge:
+         Arch: HVM64
+       hs1.8xlarge:
+         Arch: HVM64
+       cr1.8xlarge:
+         Arch: HVM64
+       cc2.8xlarge:
+         Arch: HVM64
+     AWSInstanceType2NATArch:
+       t1.micro:
+         Arch: NATHVM64
+       t2.nano:
+         Arch: NATHVM64
+       t2.micro:
+         Arch: NATHVM64
+       t2.small:
+         Arch: NATHVM64
+       t2.medium:
+         Arch: NATHVM64
+       t2.large:
+         Arch: NATHVM64
+       m1.small:
+         Arch: NATHVM64
+       m1.medium:
+         Arch: NATHVM64
+       m1.large:
+         Arch: NATHVM64
+       m1.xlarge:
+         Arch: NATHVM64
+       m2.xlarge:
+         Arch: NATHVM64
+       m2.2xlarge:
+         Arch: NATHVM64
+       m2.4xlarge:
+         Arch: NATHVM64
+       m3.medium:
+         Arch: NATHVM64
+       m3.large:
+         Arch: NATHVM64
+       m3.xlarge:
+         Arch: NATHVM64
+       m3.2xlarge:
+         Arch: NATHVM64
+       m4.large:
+         Arch: NATHVM64
+       m4.xlarge:
+         Arch: NATHVM64
+       m4.2xlarge:
+         Arch: NATHVM64
+       m4.4xlarge:
+         Arch: NATHVM64
+       m4.10xlarge:
+         Arch: NATHVM64
+       c1.medium:
+         Arch: NATHVM64
+       c1.xlarge:
+         Arch: NATHVM64
+       c3.large:
+         Arch: NATHVM64
+       c3.xlarge:
+         Arch: NATHVM64
+       c3.2xlarge:
+         Arch: NATHVM64
+       c3.4xlarge:
+         Arch: NATHVM64
+       c3.8xlarge:
+         Arch: NATHVM64
+       c4.large:
+         Arch: NATHVM64
+       c4.xlarge:
+         Arch: NATHVM64
+       c4.2xlarge:
+         Arch: NATHVM64
+       c4.4xlarge:
+         Arch: NATHVM64
+       c4.8xlarge:
+         Arch: NATHVM64
+       g2.2xlarge:
+         Arch: NATHVMG2
+       g2.8xlarge:
+         Arch: NATHVMG2
+       r3.large:
+         Arch: NATHVM64
+       r3.xlarge:
+         Arch: NATHVM64
+       r3.2xlarge:
+         Arch: NATHVM64
+       r3.4xlarge:
+         Arch: NATHVM64
+       r3.8xlarge:
+         Arch: NATHVM64
+       i2.xlarge:
+         Arch: NATHVM64
+       i2.2xlarge:
+         Arch: NATHVM64
+       i2.4xlarge:
+         Arch: NATHVM64
+       i2.8xlarge:
+         Arch: NATHVM64
+       d2.xlarge:
+         Arch: NATHVM64
+       d2.2xlarge:
+         Arch: NATHVM64
+       d2.4xlarge:
+         Arch: NATHVM64
+       d2.8xlarge:
+         Arch: NATHVM64
+       hi1.4xlarge:
+         Arch: NATHVM64
+       hs1.8xlarge:
+         Arch: NATHVM64
+       cr1.8xlarge:
+         Arch: NATHVM64
+       cc2.8xlarge:
+         Arch: NATHVM64
+     AWSRegionArch2AMI:
+       us-east-1:
+         HVM64: ami-0080e4c5bc078760e
+         HVMG2: ami-0aeb704d503081ea6
+       us-west-2:
+         HVM64: ami-01e24be29428c15b2
+         HVMG2: ami-0fe84a5b4563d8f27
+       us-west-1:
+         HVM64: ami-0ec6517f6edbf8044
+         HVMG2: ami-0a7fc72dc0e51aa77
+       eu-west-1:
+         HVM64: ami-08935252a36e25f85
+         HVMG2: ami-0d5299b1c6112c3c7
+       eu-west-2:
+         HVM64: ami-01419b804382064e4
+         HVMG2: NOT_SUPPORTED
+       eu-west-3:
+         HVM64: ami-0dd7e7ed60da8fb83
+         HVMG2: NOT_SUPPORTED
+       eu-central-1:
+         HVM64: ami-0cfbf4f6db41068ac
+         HVMG2: ami-0aa1822e3eb913a11
+       eu-north-1:
+         HVM64: ami-86fe70f8
+         HVMG2: ami-32d55b4c
+       ap-northeast-1:
+         HVM64: ami-00a5245b4816c38e6
+         HVMG2: ami-09d0e0e099ecabba2
+       ap-northeast-2:
+         HVM64: ami-00dc207f8ba6dc919
+         HVMG2: NOT_SUPPORTED
+       ap-northeast-3:
+         HVM64: ami-0b65f69a5c11f3522
+         HVMG2: NOT_SUPPORTED
+       ap-southeast-1:
+         HVM64: ami-05b3bcf7f311194b3
+         HVMG2: ami-0e46ce0d6a87dc979
+       ap-southeast-2:
+         HVM64: ami-02fd0b06f06d93dfc
+         HVMG2: ami-0c0ab057a101d8ff2
+       ap-south-1:
+         HVM64: ami-0ad42f4f66f6c1cc9
+         HVMG2: ami-0244c1d42815af84a
+       us-east-2:
+         HVM64: ami-0cd3dfa4e37921605
+         HVMG2: NOT_SUPPORTED
+       ca-central-1:
+         HVM64: ami-07423fb63ea0a0930
+         HVMG2: NOT_SUPPORTED
+       sa-east-1:
+         HVM64: ami-05145e0b28ad8e0b2
+         HVMG2: NOT_SUPPORTED
+       cn-north-1:
+         HVM64: ami-053617c9d818c1189
+         HVMG2: NOT_SUPPORTED
+       cn-northwest-1:
+         HVM64: ami-0f7937761741dc640
+         HVMG2: NOT_SUPPORTED
+   ```
+
+4. Drag and drop the EC2 instance and the Security Group. Rename them
+   <img src="assets/a025_bastion_host.PNG" style="zoom:50%;" />
+
+5. Dynamically set the instance type based on the region. Assign Tags. Link: [EC2 CloudFormation refer to NetworkInterfaces](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-instance.html). This one gave me a lot of problems. The `GroupSet` have me a type of List of String error, this [link](https://stackoverflow.com/questions/52762694/value-of-property-securitygroupids-must-be-of-type-list-of-string-error-while-up/52762832) helped me fix it. The rest of the properties can be found [at this template](https://s3.us-west-2.amazonaws.com/cloudformation-templates-us-west-2/EC2InstanceWithSecurityGroupSample.template)
+
+   ```yaml
+     BastionHost:
+       Type: 'AWS::EC2::Instance'
+       Properties:
+         NetworkInterfaces:
+           - AssociatePublicIpAddress: 'true'
+             DeviceIndex: '0'
+             GroupSet:
+               - !Ref BastionHostSecurityGroup
+             SubnetId: !Ref publicSubnet1
+         KeyName: !Ref KeyName
+         ImageId: !FindInMap 
+           - AWSRegionArch2AMI
+           - !Ref 'AWS::Region'
+           - !FindInMap 
+             - AWSInstanceType2Arch
+             - !Ref InstanceType
+             - Arch
+         Tags:
+           - Key: Name
+             Value: bastion-host-three-tier
+       Metadata:
+         'AWS::CloudFormation::Designer':
+           id: 71cb5d13-a826-4ec7-98c9-aca8ede1f221
+   ```
+
+6. Configure the SSH Ingress Rules, `GroupDescription` and assign a `Tag`. [Security Group CloudFormation](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-security-group.html)
+
+   ```yaml
+     BastionHostSecurityGroup:
+       Type: 'AWS::EC2::SecurityGroup'
+       Properties:
+         VpcId: !Ref vpcApSoutheast1ThreeTierStack
+         GroupDescription: Enable SSH access via port 22
+         SecurityGroupIngress:
+           - IpProtocol: tcp
+             FromPort: '22'
+             ToPort: '22'
+             CidrIp: !Ref SSHLocation
+         Tags:
+           - Key: Name
+             Value: bastion-host-three-tier-sg
+       Metadata:
+         'AWS::CloudFormation::Designer':
+           id: 0b347855-1997-442d-952c-cc0a28a93055
+   ```
+
+7. Output the Public IP, Public DNS Name and Private IPs of the instance
+
+   ```yaml
+   Outputs:
+     BastionHostInstanceId:
+       Description: InstanceId of the BastionHost instance
+       Value: !Ref BastionHost
+     PublicDNS:
+       Description: Public DNSName of the newly created EC2 instance
+       Value: !GetAtt 
+         - BastionHost
+         - PublicDnsName
+     PublicIP:
+       Description: Public IP address of the BastionHost instance
+       Value: !GetAtt 
+         - BastionHost
+         - PublicIp
+     PrivateIP:
+       Description: Private IP address of the BastionHost instance
+       Value: !GetAtt 
+         - BastionHost
+         - PrivateIp
+   ```
+
+Upon launching the stack, we are greeted by parameters
+
+<img src="assets/a026_parameter_selection.PNG" style="zoom:50%;" />
+
+# 7. Objective 5: Create the RDS Instances
+
+Useful Links:
+
+- [Template for RDS and Read Replica](https://s3.us-west-2.amazonaws.com/cloudformation-templates-us-west-2/RDS_MySQL_With_Read_Replica.template)
+
+
+
+# 8. Objective 6: Create the load balancers and Auto Scaling Group
+
+Note: The front-end Web Application resides in the private subnets but is connected to the internet facing load balancer. This can be achieved by referring to this [Link](https://aws.amazon.com/premiumsupport/knowledge-center/public-load-balancer-private-ec2/)
+
+Link to security group configurations for the Bastion host and the private instances: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Scenario2.html
+
+
+
