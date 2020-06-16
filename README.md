@@ -731,6 +731,7 @@ In Cloud Designer
              - AWSInstanceType2Arch
              - !Ref InstanceType
              - Arch
+         InstanceType: !Ref InstanceType
          Tags:
            - Key: Name
              Value: bastion-host-three-tier
