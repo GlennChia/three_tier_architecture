@@ -1010,9 +1010,212 @@ In Cloud Designer
 
 Note: The front-end Web Application resides in the private subnets but is connected to the internet facing load balancer. This can be achieved by referring to this [Link](https://aws.amazon.com/premiumsupport/knowledge-center/public-load-balancer-private-ec2/)
 
-Link to security group configurations for the Bastion host and the private instances: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Scenario2.html
+1. Start with the Auto Scaling Group. Drag and Drop the ASG, Target Group, Launch Configuration and the security group for the EC2 instances that will be launched. This security group specifies only receiving traffic from the load balancer (done with a `SecurityGroupIngress`). Make the connections between the launch configuration and the ASG. Link the ASG to the subnets and the Target Group. Link the Launch Configuration to the Security Groups.
+   ![](assets/a028_asg_launch_config.PNG)
 
-# 9. TODO
+2. For the Auto Scaling Group, set properties for `MinSize` and `MaxSize`. Since we are deploying in a VPC, the [Auto Scaling Group Documentation](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-as-group.html#cfn-as-group-availabilityzones) states that we must explicitly declare the `AvailabilityZones`. We also set a `CreationPolicy` which prevents a resource's status from reaching create complete until AWS CloudFormation receives a specified number of success signals or the timeout period is exceeded. Link to [Creation Policy](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-creationpolicy.html). Add an `UpdatePolicy` which Rolling updates enable you to specify whether AWS CloudFormation updates instances that are in an Auto Scaling group in batches or all at once. Link to [Update Policy](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatepolicy.html). For now we comment the policies because we are not launching instances that trigger the `ResourceSignal`
 
-1. Figure out the Security Group Ingress to take in another security group. This is needed for the SG for the front end to take in the Bastion host and the SG for the RDS to accept requests from the backend SG
+   ```yaml
+     FrontEndAutoScalingGoup:
+       Type: 'AWS::AutoScaling::AutoScalingGroup'
+       Properties:
+         AutoScalingGroupName: auto-scaling-group-frontend-three-tier
+         AvailabilityZones:
+           - !Select 
+             - 0
+             - 'Fn::GetAZs': !Ref 'AWS::Region'
+           - !Select 
+             - 1
+             - 'Fn::GetAZs': !Ref 'AWS::Region'
+         VPCZoneIdentifier:
+           - !Ref privateSubnet3
+           - !Ref privateSubnet4
+         LaunchConfigurationName: !Ref FrontEndLaunchConfig
+         TargetGroupARNs:
+           - !Ref FrontEndTargetGroup
+         MinSize: '2'
+         MaxSize: '2'
+         Tags:
+           - Key: Name
+             Value: auto-scaling-group-frontend-three-tier
+             PropagateAtLaunch: 'true'
+       # CreationPolicy:
+       #   ResourceSignal:
+       #     Count: '2'
+       #     Timeout: PT15M
+       # UpdatePolicy:
+       #   AutoScalingRollingUpdate:
+       #     MinInstancesInService: '1'
+       #     MaxBatchSize: '1'
+       #     PauseTime: PT15M
+       #     WaitOnResourceSignals: 'true'
+       Metadata:
+         'AWS::CloudFormation::Designer':
+           id: 7372af06-741b-4f4e-8c82-bf36b7643dbc
+   ```
+   
+3. Update the launch configuration (Can configure `UserData` and `MetaData` later)
+
+   ```yaml
+     FrontEndLaunchConfig:
+       Type: 'AWS::AutoScaling::LaunchConfiguration'
+       Properties:
+         LaunchConfigurationName: launch-configuration-frontend-three-tier
+         ImageId: !FindInMap 
+           - AWSRegionArch2AMI
+           - !Ref 'AWS::Region'
+           - !FindInMap 
+             - AWSInstanceType2Arch
+             - !Ref InstanceType
+             - Arch
+         SecurityGroups:
+           - !Ref FrontendEC2SecurityGroup
+         InstanceType: !Ref InstanceType
+         KeyName: !Ref KeyName
+       Metadata:
+         'AWS::CloudFormation::Designer':
+           id: f6b3bc8f-f520-4157-be2a-b7ea84adaaeb
+   ```
+
+4. Configure the Target Group properties
+
+   ```yaml
+     FrontEndTargetGroup:
+       Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+       Properties:
+         VpcId: !Ref vpcApSoutheast1ThreeTierStack
+         HealthCheckIntervalSeconds: 30
+         HealthCheckTimeoutSeconds: 5
+         HealthyThresholdCount: 3
+         Port: 80
+         Protocol: HTTP
+         UnhealthyThresholdCount: 5
+         Name: targetgroup-frontend-three-tier
+       Metadata:
+         'AWS::CloudFormation::Designer':
+           id: 9b8e5748-a62d-4527-915a-46c39d29016f
+   ```
+
+5. Configure the security group for the instances. It will be bare because we will use a `SecurityGroupIngress` later
+   
+   ```yaml
+     FrontendEC2SecurityGroup:
+       Type: 'AWS::EC2::SecurityGroup'
+       Properties:
+         VpcId: !Ref vpcApSoutheast1ThreeTierStack
+         GroupDescription: EC2 Instance
+         Tags:
+           - Key: Name
+             Value: instance-frontend-three-tier-sg
+       Metadata:
+         'AWS::CloudFormation::Designer':
+           id: 31e9964c-5467-4923-b106-bff72da6540e
+   ```
+6. Insert the Load Balancer, Listener and Security Group. Note that there is no icon for `SecurityGroupIngress`. Connect the Load Balancer to the subnets and Security Group that we just inserted. Connect the Listener to the Load Balancer
+   ![](assets/a029_load_balancer.PNG)
+
+7. Configure the Load Balancer. It must be associated with the public subnets because it is an internet-facing load balancer
+
+   ```yaml
+     FrontEndLoadBalancer:
+       Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+       Properties:
+         Name: lb-frontend-three-tier
+         Scheme: internet-facing
+         SubnetMappings:
+           - SubnetId: !Ref publicSubnet1
+           - SubnetId: !Ref publicSubnet2
+         SecurityGroups:
+           - !Ref FrontEndLoadBalancerSecurityGroup
+       Metadata:
+         'AWS::CloudFormation::Designer':
+           id: c5255fe9-c457-428c-8717-2231dbd0e282
+   ```
+
+8. Configure the Listener
+
+   ```yaml
+     FrontEndLoadBalancerListener:
+       Type: 'AWS::ElasticLoadBalancingV2::Listener'
+       Properties:
+         LoadBalancerArn: !Ref FrontEndLoadBalancer
+         Port: 80
+         Protocol: HTTP
+         DefaultActions:
+           - Type: forward
+             TargetGroupArn: !Ref FrontEndTargetGroup
+   ```
+   
+9. Configure the Security Group for the Load Balancer
+
+   ```yaml
+     FrontEndLoadBalancerSecurityGroup:
+       Type: 'AWS::EC2::SecurityGroup'
+       Properties:
+         GroupDescription: Enable SSH access from Bastion Host and HTTP access on the inbound port
+         VpcId: !Ref vpcApSoutheast1ThreeTierStack
+         SecurityGroupIngress:
+           - IpProtocol: tcp
+             FromPort: 80
+             ToPort: 80
+             CidrIp: !Ref SSHLocation
+           - IpProtocol: tcp
+             FromPort: '22'
+             ToPort: '22'
+             CidrIp: !Join 
+               - ''
+               - - !GetAtt 
+                   - BastionHost
+                   - PrivateIp
+                 - /32
+         Tags:
+           - Key: Name
+             Value: asg-frontend-three-tier-sg
+       Metadata:
+         'AWS::CloudFormation::Designer':
+           id: d8a04551-3716-42ff-bc1e-6676dd1a9e2a
+   ```
+
+10. Finally create the `SecurityGroupIngress`
+
+    ```yaml
+      FrontendEC2InboundRule:
+        Type: 'AWS::EC2::SecurityGroupIngress'
+        Properties:
+          Description: EC2 can only accept traffic from ALB
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !GetAtt 
+            - FrontEndLoadBalancerSecurityGroup
+            - GroupId
+          GroupId: !GetAtt 
+            - FrontendEC2SecurityGroup
+            - GroupId
+        Metadata:
+          'AWS::CloudFormation::Designer':
+            id: 25ba48cd-7863-4367-9d88-aae5229faafa
+    ```
+
+11. Output the DNS name of the Load Balancer so that we can reach the frontend
+
+    ```yaml
+      PublicDns:
+        Description: The Public DNS
+        Value: !Sub 'http://${FrontEndLoadBalancer.DNSName}'
+    ```
+
+    
+
+The current diagram looks like
+
+![](assets/a030_frontend_integrated.PNG)
+
+# 9. Objective 7: Create the backend load balancers and Auto Scaling group
+
+
+
+# 10. General Useful Links
+
+1. This [link](https://stackoverflow.com/questions/35182720/cloudformation-security-group-vpc-issue) is useful for explaining how to use `'AWS::EC2::SecurityGroupIngress'`. This is used when we want to have one security group accept the requests that come from another security group
 
