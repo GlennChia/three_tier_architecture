@@ -1213,9 +1213,242 @@ The current diagram looks like
 
 # 9. Objective 7: Create the backend load balancers and Auto Scaling group
 
+Very similar to the previous Section except a few differences
 
+- Security group for load balancer backend will allow HTTP, HTTPS requests from the Frontend, SSH from the Bastion Host
+- Security group of the databases should allow ingress on Port 3306 to the backend load balancer security group
+- Load balancer is an internal load balancer and will be connected to the private subnets
+
+Steps
+
+1. Start with the Auto Scaling Group. Drag and Drop the ASG, Target Group, Launch Configuration and the security group for the EC2 instances that will be launched. This security group specifies only receiving traffic from the load balancer (done with a `SecurityGroupIngress`). Make the connections between the launch configuration and the ASG. Link the ASG to the subnets and the Target Group. Link the Launch Configuration to the Security Groups.
+   ![](assets/a031_asg_launch_config2.PNG)
+
+2. For the Auto Scaling Group, set properties for `MinSize` and `MaxSize`. Since we are deploying in a VPC, the [Auto Scaling Group Documentation](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-as-group.html#cfn-as-group-availabilityzones) states that we must explicitly declare the `AvailabilityZones`. We also set a `CreationPolicy` which prevents a resource's status from reaching create complete until AWS CloudFormation receives a specified number of success signals or the timeout period is exceeded. Link to [Creation Policy](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-creationpolicy.html). Add an `UpdatePolicy` which Rolling updates enable you to specify whether AWS CloudFormation updates instances that are in an Auto Scaling group in batches or all at once. Link to [Update Policy](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-updatepolicy.html). For now we comment the policies because we are not launching instances that trigger the `ResourceSignal`
+
+   ```yaml
+     BackendAutoScalingGoup:
+       Type: 'AWS::AutoScaling::AutoScalingGroup'
+       Properties:
+         AutoScalingGroupName: auto-scaling-group-backend-three-tier
+         AvailabilityZones:
+           - !Select 
+             - 0
+             - 'Fn::GetAZs': !Ref 'AWS::Region'
+           - !Select 
+             - 1
+             - 'Fn::GetAZs': !Ref 'AWS::Region'
+         VPCZoneIdentifier:
+           - !Ref privateSubnet3
+           - !Ref privateSubnet4
+         TargetGroupARNs:
+           - !Ref BackendTargetGroup
+         LaunchConfigurationName: !Ref BackendLaunchConfig
+         MinSize: '2'
+         MaxSize: '2'
+         Tags:
+           - Key: Name
+             Value: auto-scaling-group-backend-three-tier
+             PropagateAtLaunch: 'true'
+       Metadata:
+         'AWS::CloudFormation::Designer':
+           id: 25741cbc-47ad-4c5c-bb9d-0b03452bee31
+   ```
+
+3. Update the launch configuration (Can configure `UserData` and `MetaData` later)
+
+   ```yaml
+     BackendLaunchConfig:
+       Type: 'AWS::AutoScaling::LaunchConfiguration'
+       Properties:
+         LaunchConfigurationName: launch-configuration-backend-three-tier
+         ImageId: !FindInMap 
+           - AWSRegionArch2AMI
+           - !Ref 'AWS::Region'
+           - !FindInMap 
+             - AWSInstanceType2Arch
+             - !Ref InstanceType
+             - Arch
+         SecurityGroups:
+           - !Ref BackendEC2SecurityGroup
+         InstanceType: !Ref InstanceType
+         KeyName: !Ref KeyName
+       Metadata:
+         'AWS::CloudFormation::Designer':
+           id: 41ba1ae5-ba55-4692-bd0a-679e4e83bd8fs
+   ```
+
+4. Configure the Target Group properties. Set the Port too 3000
+
+   ```yaml
+     BackendTargetGroup:
+       Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+       Properties:
+         VpcId: !Ref vpcApSoutheast1ThreeTierStack
+         HealthCheckIntervalSeconds: 30
+         HealthCheckTimeoutSeconds: 5
+         HealthyThresholdCount: 3
+         Port: 3000
+         Protocol: HTTP
+         UnhealthyThresholdCount: 5
+         Name: targetgroup-backend-three-tier
+       Metadata:
+         'AWS::CloudFormation::Designer':
+           id: b41217b9-80eb-4a62-8e1b-b3d5982389f8
+   ```
+
+5. Configure the security group for the instances. It will be bare because we will use a `SecurityGroupIngress` later
+
+   ```yaml
+     BackendEC2SecurityGroup:
+       Type: 'AWS::EC2::SecurityGroup'
+       Properties:
+         VpcId: !Ref vpcApSoutheast1ThreeTierStack
+         GroupDescription: Backend EC2 Instance
+         Tags:
+           - Key: Name
+             Value: instance-backend-three-tier-sg
+       Metadata:
+         'AWS::CloudFormation::Designer':
+           id: 49169aab-bd16-46b3-a8dd-08784e4f38f3
+   ```
+
+6. Insert the Load Balancer, Listener and Security Group. Note that there is no icon for `SecurityGroupIngress`. Connect the Load Balancer to the subnets and Security Group that we just inserted. Connect the Listener to the Load Balancer
+   ![](assets/a032_load_balancer2.PNG)
+
+7. Configure the Load Balancer. It is associated with the private subnets. Specify that it is an `internal ` load balancer
+
+   ```yaml
+     BackendLoadBalancer:
+       Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+       Properties:
+         Name: lb-backend-three-tier
+         Scheme: internal
+         SubnetMappings:
+           - SubnetId: !Ref privateSubnet3
+           - SubnetId: !Ref privateSubnet4
+         SecurityGroups:
+           - !Ref BackendLoadBalancerSecurityGroup
+       Metadata:
+         'AWS::CloudFormation::Designer':
+           id: ebcf87da-48d8-4d4b-8c44-39ac1eae2be1
+   ```
+
+8. Configure the Listener
+
+   ```yaml
+     BackEndLoadBalancerListener:
+       Type: 'AWS::ElasticLoadBalancingV2::Listener'
+       Properties:
+         LoadBalancerArn: !Ref BackendLoadBalancer
+         Port: 3000
+         Protocol: HTTP
+         DefaultActions:
+           - Type: forward
+             TargetGroupArn: !Ref BackendTargetGroup
+       Metadata:
+         'AWS::CloudFormation::Designer':
+           id: a86b4428-1c5d-4eca-8fd1-d03633619fbb
+   ```
+
+9. Configure the Security Group for the Load Balancer to allow SSH from the BastionHost
+
+   ```yaml
+     BackendLoadBalancerSecurityGroup:
+       Type: 'AWS::EC2::SecurityGroup'
+       Properties:
+         GroupDescription: >-
+           Enable SSH access from Bastion Host and HTTP access from Frontend on the
+           inbound port
+         VpcId: !Ref vpcApSoutheast1ThreeTierStack
+         SecurityGroupIngress:
+           - IpProtocol: tcp
+             FromPort: '22'
+             ToPort: '22'
+             CidrIp: !Join 
+               - ''
+               - - !GetAtt 
+                   - BastionHost
+                   - PrivateIp
+                 - /32
+         Tags:
+           - Key: Name
+             Value: asg-frontend-three-tier-sg
+       Metadata:
+         'AWS::CloudFormation::Designer':
+           id: daa71782-351e-42fd-8926-42e4934b6ef1
+   ```
+
+10. Create the `SecurityGroupIngress` from the Frontend EC2 Security Group. Refer to the section ""VPC Security Groups with Egress and Ingress Rules" at this [Link](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-security-group-ingress.html#cfn-ec2-security-group-ingress-sourcesecuritygroupid)
+
+    ```yaml
+      FrontendBackendInboundRule:
+        Type: 'AWS::EC2::SecurityGroupIngress'
+        Properties:
+          Description: Backend lb can only accept traffic from Front end instances
+          IpProtocol: tcp
+          FromPort: 3000
+          ToPort: 3000
+          SourceSecurityGroupId: !GetAtt 
+            - FrontendEC2SecurityGroup
+            - GroupId
+          GroupId: !GetAtt 
+            - BackendLoadBalancerSecurityGroup
+            - GroupId
+    ```
+
+11. Finally create the `SecurityGroupIngress` for the backend load balancer to the backend EC2 Security Groups
+
+    ```yaml
+      BackendEC2InboundRule:
+        Type: 'AWS::EC2::SecurityGroupIngress'
+        Properties:
+          Description: EC2 can only accept traffic from ALB
+          IpProtocol: tcp
+          FromPort: 3000
+          ToPort: 3000
+          SourceSecurityGroupId: !GetAtt 
+            - BackendLoadBalancerSecurityGroup
+            - GroupId
+          GroupId: !GetAtt 
+            - BackendEC2SecurityGroup
+            - GroupId
+        Metadata:
+          'AWS::CloudFormation::Designer':
+            id: c662416d-9286-4c88-bf8a-849d89683453
+    ```
+
+12. Add another `SecurityGroupIngress` for the Database to allow inbound traffic from port 3306 from the Backend Auto Scaling group
+
+    ```yaml
+      DatabaseInboundRule:
+        Type: 'AWS::EC2::SecurityGroupIngress'
+        Properties:
+          Description: RDS can only accept traffic from backend EC2
+          IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          SourceSecurityGroupId: !GetAtt 
+            - BackendEC2SecurityGroup
+            - GroupId
+          GroupId: !GetAtt 
+            - DBEC2SecurityGroup
+            - GroupId
+        Metadata:
+          'AWS::CloudFormation::Designer':
+            id: c662416d-9286-4c88-bf8a-849d89683453
+    ```
+
+
+The final diagram looks like
+
+![](assets/a033_full_archi.PNG)
 
 # 10. General Useful Links
 
 1. This [link](https://stackoverflow.com/questions/35182720/cloudformation-security-group-vpc-issue) is useful for explaining how to use `'AWS::EC2::SecurityGroupIngress'`. This is used when we want to have one security group accept the requests that come from another security group
 
+TODO
+
+1. Test the architecture (SSH, connection from frontend to backend, connection from backend to RDS)
+2. Add a new parameter for "allowed HTTP Ingress" into the Load Balancer. Currently, it is using the SSH IP
